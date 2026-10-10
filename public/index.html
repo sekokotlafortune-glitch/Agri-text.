@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Agri Text SMS Simulator</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background:
+                radial-gradient(ellipse at 20% 10%, rgba(34, 197, 94, 0.13), transparent 35%),
+                linear-gradient(145deg, #0f172a, #1e293b 55%, #111827);
+        }
+
+        .feature-phone {
+            background: linear-gradient(145deg, #303944, #111827 60%, #374151);
+            border: 1px solid #4b5563;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+        }
+
+        .feature-phone.touchscreen-mode {
+            padding: 10px;
+            background: linear-gradient(145deg, #475569, #0f172a 60%, #334155);
+            border: 8px solid #111827;
+            border-radius: 2.75rem;
+        }
+
+        .touchscreen-mode #physicalKeypad {
+            display: none;
+        }
+
+        .touchscreen-mode .screen-frame {
+            border-radius: 2rem;
+        }
+
+        .interface-switch {
+            color: #e2e8f0;
+            background: rgba(15, 23, 42, 0.72);
+            border: 1px solid #64748b;
+        }
+
+        .interface-switch:hover {
+            background: #334155;
+        }
+
+        .phone-key {
+            min-height: 36px;
+            color: #f8fafc;
+            background: linear-gradient(180deg, #475569, #273244);
+            border: 1px solid #64748b;
+            box-shadow: 0 2px 0 #111827, inset 0 1px 0 rgba(255, 255, 255, 0.12);
+            transition: transform 100ms ease, filter 100ms ease;
+        }
+
+        .phone-key:active {
+            transform: translateY(2px);
+            filter: brightness(1.2);
+            box-shadow: 0 0 0 #111827, inset 0 1px 0 rgba(255, 255, 255, 0.12);
+        }
+
+        .phone-key-label {
+            display: block;
+            margin-top: -2px;
+            color: #cbd5e1;
+            font-size: 8px;
+            letter-spacing: 0.12em;
+        }
+
+        .signal-bars {
+            display: inline-flex;
+            align-items: flex-end;
+            gap: 2px;
+            height: 13px;
+        }
+
+        .signal-bars span {
+            display: block;
+            width: 3px;
+            border-radius: 2px 2px 0 0;
+            background: currentColor;
+        }
+
+        .signal-bars span:nth-child(1) { height: 5px; }
+        .signal-bars span:nth-child(2) { height: 8px; }
+        .signal-bars span:nth-child(3) { height: 11px; }
+        .signal-bars span:nth-child(4) { height: 13px; }
+
+        @media (max-width: 420px) {
+            .feature-phone {
+                padding: 8px;
+                border-radius: 2rem;
+            }
+        }
+
+        .chat-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .chat-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .chat-scroll::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 20px;
+        }
+
+        .typing-dot {
+            animation: typing 1.4s infinite ease-in-out both;
+        }
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        
+        @keyframes typing {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+
+        .message-pop {
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            transform-origin: bottom;
+        }
+
+        .message-bubble {
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            white-space: normal;
+        }
+
+        @keyframes popIn {
+            from { opacity: 0; transform: translateY(10px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-3 sm:p-8">
+
+    <div id="phoneShell" class="feature-phone relative w-full max-w-[400px] h-[900px] max-h-[96vh] p-3 sm:rounded-[3rem] rounded-[2rem] overflow-hidden flex flex-col">
+        <div class="h-7 shrink-0 flex items-center justify-between px-3 text-[10px] font-semibold tracking-[0.12em] text-slate-300">
+            <span class="flex items-center gap-2">
+                <span id="phoneStatusDot" class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                <span id="phoneModeLabel">BUTTON PHONE · DEMO ONLY</span>
+            </span>
+            <div class="flex items-center gap-3">
+                <span class="flex items-center gap-2 text-slate-200" aria-label="Simulated 2G network signal and battery">
+                    <span class="rounded bg-slate-700 px-1 py-0.5 text-[9px] font-bold tracking-normal text-emerald-300">2G</span>
+                    <span class="signal-bars" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+                    <i class="fa-solid fa-battery-three-quarters text-sm" aria-hidden="true"></i>
+                </span>
+                <button id="interfaceToggle" type="button" aria-pressed="false" class="interface-switch rounded-full px-2.5 py-1 text-[9px] font-semibold normal-case tracking-normal">
+                    Use touchscreen
+                </button>
+            </div>
+        </div>
+        <div class="screen-frame relative flex-1 min-h-0 bg-white overflow-hidden flex flex-col rounded-[1.5rem] sm:rounded-[2rem]">
+        
+        <!-- Chat Header -->
+        <div class="bg-white/95 backdrop-blur-md border-b border-slate-100 p-4 flex items-center justify-between z-10 absolute top-0 w-full shadow-sm">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 shadow-inner">
+                    <i class="fa-solid fa-seedling text-lg"></i>
+                </div>
+                <div>
+                    <a href="https://example.com" target="_blank" rel="noopener noreferrer" class="font-semibold text-slate-800 text-lg leading-tight hover:text-green-600 transition-colors">Agri text</a>
+                    <p class="text-xs text-green-500 font-medium flex items-center gap-1">
+                        <span class="w-2 h-2 rounded-full bg-green-500 inline-block animate-pulse"></span> Online
+                    </p>
+                </div>
+            </div>
+            <button id="restartBtn" title="Restart Conversation" class="w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-full transition-colors">
+                <i class="fa-solid fa-rotate-right"></i>
+            </button>
+        </div>
+
+        <!-- Chat History Area -->
+        <div id="chatContainer" class="flex-1 overflow-y-auto chat-scroll p-4 pt-24 pb-4 space-y-4 bg-[#efeae2] flex flex-col bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
+            
+            <div class="text-center text-xs text-slate-500/70 my-2 uppercase tracking-wider font-semibold bg-black/5 rounded-full mx-auto px-3 py-1">
+                Today
+            </div>
+            <!-- Messages appended here dynamically -->
+        </div>
+
+        <!-- Typing Indicator -->
+        <div id="typingIndicator" class="hidden px-4 pb-2 bg-[#efeae2] absolute bottom-[70px] left-0">
+            <div class="bg-white rounded-2xl rounded-bl-sm p-3 w-16 shadow-sm flex gap-1 justify-center items-center h-10 border border-slate-100">
+                <div class="w-2 h-2 bg-slate-400 rounded-full typing-dot"></div>
+                <div class="w-2 h-2 bg-slate-400 rounded-full typing-dot"></div>
+                <div class="w-2 h-2 bg-slate-400 rounded-full typing-dot"></div>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="p-3 bg-white border-t border-slate-200 flex items-end gap-2 z-10 pb-4 sm:pb-3">
+            <div class="flex-1 relative">
+                <input 
+                    type="text"
+                    id="chatInput" 
+                    class="w-full bg-slate-100 rounded-2xl pl-4 pr-4 py-3 outline-none focus:ring-2 focus:ring-green-500 transition-all text-slate-700 placeholder-slate-400"
+                    placeholder="Text first..."
+                    autocomplete="off"
+                />
+            </div>
+            <button 
+                id="sendBtn"
+                class="bg-green-600 hover:bg-green-700 text-white rounded-full h-12 w-12 flex items-center justify-center shrink-0 shadow-md transition-transform transform active:scale-95"
+            >
+                <i class="fa-solid fa-paper-plane"></i>
+            </button>
+        </div>
+        </div>
+
+        <div id="physicalKeypad" class="shrink-0 px-2 pt-3 pb-2">
+            <div class="flex items-center justify-center gap-8 mb-3">
+                <button id="keyCallBtn" type="button" aria-label="Send message" title="Send message" class="phone-key w-12 h-8 rounded-xl bg-gradient-to-b from-emerald-500 to-green-700 border-green-400 text-white">
+                    <i class="fa-solid fa-phone"></i>
+                </button>
+                <button id="keyDeleteBtn" type="button" aria-label="Delete last character" title="Delete last character" class="phone-key w-12 h-8 rounded-xl bg-gradient-to-b from-rose-500 to-red-800 border-rose-400 text-white">
+                    <i class="fa-solid fa-delete-left"></i>
+                </button>
+            </div>
+            <div class="grid grid-cols-3 gap-x-3 gap-y-2 max-w-[230px] mx-auto">
+                <button type="button" data-key="1" aria-label="Key 1" class="phone-key rounded-xl text-sm font-semibold">1<span class="phone-key-label">&nbsp;</span></button>
+                <button type="button" data-key="2" aria-label="Key 2" class="phone-key rounded-xl text-sm font-semibold">2<span class="phone-key-label">ABC</span></button>
+                <button type="button" data-key="3" aria-label="Key 3" class="phone-key rounded-xl text-sm font-semibold">3<span class="phone-key-label">DEF</span></button>
+                <button type="button" data-key="4" aria-label="Key 4" class="phone-key rounded-xl text-sm font-semibold">4<span class="phone-key-label">GHI</span></button>
+                <button type="button" data-key="5" aria-label="Key 5" class="phone-key rounded-xl text-sm font-semibold">5<span class="phone-key-label">JKL</span></button>
+                <button type="button" data-key="6" aria-label="Key 6" class="phone-key rounded-xl text-sm font-semibold">6<span class="phone-key-label">MNO</span></button>
+                <button type="button" data-key="7" aria-label="Key 7" class="phone-key rounded-xl text-sm font-semibold">7<span class="phone-key-label">PQRS</span></button>
+                <button type="button" data-key="8" aria-label="Key 8" class="phone-key rounded-xl text-sm font-semibold">8<span class="phone-key-label">TUV</span></button>
+                <button type="button" data-key="9" aria-label="Key 9" class="phone-key rounded-xl text-sm font-semibold">9<span class="phone-key-label">WXYZ</span></button>
+                <button type="button" data-key="*" aria-label="Star key" class="phone-key rounded-xl text-sm font-semibold">*<span class="phone-key-label">&nbsp;</span></button>
+                <button type="button" data-key="0" aria-label="Key 0" class="phone-key rounded-xl text-sm font-semibold">0<span class="phone-key-label">+</span></button>
+                <button type="button" data-key="#" aria-label="Hash key" class="phone-key rounded-xl text-sm font-semibold">#<span class="phone-key-label">&nbsp;</span></button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
