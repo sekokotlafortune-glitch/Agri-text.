@@ -8,7 +8,7 @@ const bot = require('./bot/engine');
 
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
-const PUBLIC_DIR = path.join(__dirname, 'public');
+const PUBLIC_DIR = path.resolve(__dirname, 'public');
 const SESSION_TTL_MS = 30 * 60 * 1000;
 const MAX_BODY_BYTES = 16 * 1024;
 
@@ -115,8 +115,8 @@ async function handleApi(req, res, url) {
             session = created.data;
         }
 
-        const replies = await bot.processMessage(session, text);
-        return sendJson(res, 200, { replies, ...sessionView(sessionId, session) });
+        const { replies, trace } = await bot.processMessage(session, text);
+        return sendJson(res, 200, { replies, trace, ...sessionView(sessionId, session) });
     }
 
     return sendJson(res, 404, { error: 'Not found' });
@@ -128,9 +128,16 @@ function serveStatic(req, res, url) {
         return;
     }
 
-    const requestPath = decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname);
-    const filePath = path.normalize(path.join(PUBLIC_DIR, requestPath));
-    if (!filePath.startsWith(PUBLIC_DIR + path.sep) && filePath !== PUBLIC_DIR) {
+    let requestPath;
+    try {
+        requestPath = decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname);
+    } catch {
+        res.writeHead(400).end();
+        return;
+    }
+    // Resolve inside PUBLIC_DIR only; path.resolve + prefix check blocks traversal on any OS.
+    const filePath = path.resolve(PUBLIC_DIR, `.${requestPath}`);
+    if (filePath !== PUBLIC_DIR && !filePath.startsWith(PUBLIC_DIR + path.sep)) {
         res.writeHead(403).end();
         return;
     }
@@ -152,7 +159,9 @@ function serveStatic(req, res, url) {
 const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     try {
-        if (url.pathname.startsWith('/api/')) {
+        if (url.pathname === '/healthz') {
+            sendJson(res, 200, { ok: true, uptime: Math.round(process.uptime()), sessions: sessions.size });
+        } else if (url.pathname.startsWith('/api/')) {
             await handleApi(req, res, url);
         } else {
             serveStatic(req, res, url);
