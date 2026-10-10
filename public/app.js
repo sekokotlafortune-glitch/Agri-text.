@@ -136,6 +136,19 @@ remoteInput.addEventListener('input', () => {
 });
 restartBtn.addEventListener('click', startSimulation);
 
+// ---------- Theme (light / dark) ----------
+const themeMeta = document.querySelector('meta[name="theme-color"]');
+function applyTheme(theme) {
+    document.documentElement.dataset.theme = theme;
+    if (themeMeta) themeMeta.content = theme === 'light' ? '#f4f7f2' : '#0b1220';
+}
+applyTheme(document.documentElement.dataset.theme || 'dark');
+$('themeBtn').addEventListener('click', () => {
+    const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+    applyTheme(next);
+    try { localStorage.setItem('agri-theme', next); } catch (e) { /* storage unavailable */ }
+});
+
 // ---------- Clocks ----------
 function tickClocks() {
     const now = new Date();
@@ -584,7 +597,14 @@ function timeNow(withSeconds = false) {
 }
 
 function scrollToEnd(container) {
-    requestAnimationFrame(() => { container.scrollTop = container.scrollHeight; });
+    requestAnimationFrame(() => {
+        if (container.scrollHeight > container.clientHeight) {
+            container.scrollTop = container.scrollHeight;
+        } else if (container === eventLog && container.lastElementChild && matchMedia('(min-width: 1181px)').matches) {
+            // Wide layout: the timeline grows with the page (phones stay sticky), so bring the newest event into view
+            container.lastElementChild.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+    });
 }
 
 // Resolves after `ms`, or rejects if the simulation was restarted in the meantime
