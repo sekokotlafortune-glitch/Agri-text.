@@ -63,10 +63,16 @@ function dictFor(session) {
 
 /**
  * Advances the conversation for a session with the given user input.
- * Mutates the session and returns the list of bot replies to show.
+ * Mutates the session and returns the bot replies plus a trace of
+ * external API calls made while producing them.
  */
 async function processMessage(session, rawInput) {
-    const input = String(rawInput || '');
+    const trace = [];
+    const replies = await advance(session, String(rawInput || ''), trace);
+    return { replies, trace };
+}
+
+async function advance(session, input, trace) {
     const msg = input.trim().toLowerCase();
     const dict = dictFor(session);
 
@@ -114,7 +120,7 @@ async function processMessage(session, rawInput) {
         case STATE.WEATHER_RETRY:
             if (msg === '1') {
                 session.state = STATE.BUSY;
-                return respondWithWeather(session, session.location);
+                return respondWithWeather(session, session.location, trace);
             }
             if (msg === '2') {
                 session.state = STATE.LOCATION;
@@ -126,7 +132,7 @@ async function processMessage(session, rawInput) {
             if (msg === '') return [reply(`${dict.error}<br>${dict.askLocation}`)];
             session.location = input;
             session.state = STATE.BUSY;
-            return respondWithWeather(session, input);
+            return respondWithWeather(session, input, trace);
 
         case STATE.PRODUCE:
             if (/^[1-7]$/.test(msg)) {
@@ -177,14 +183,14 @@ function detectGreetingLanguage(input) {
     return Object.entries(greetings).find(([, pattern]) => pattern.test(normalized))?.[0] || null;
 }
 
-async function respondWithWeather(session, locationInput) {
+async function respondWithWeather(session, locationInput, trace) {
     const lang = session.lang;
     const dict = dictFor(session);
 
     try {
-        const { lat, lon, locationName } = await geocode(locationInput);
+        const { lat, lon, locationName } = await geocode(locationInput, trace);
         const forecastDays = session.weatherPeriod === 'weekly' ? 7 : 1;
-        const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=${forecastDays}&timezone=auto`);
+        const weatherRes = await tracedFetch(trace, 'open-meteo-forecast', `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=${forecastDays}&timezone=auto`);
         if (!weatherRes.ok) throw new Error("Weather forecast unavailable");
         const weatherData = await weatherRes.json();
         const localTime = weatherData.current_weather.time;
@@ -233,12 +239,31 @@ async function respondWithWeather(session, locationInput) {
     }
 }
 
-async function geocode(locationInput) {
+// Performs a fetch and records the call (host, latency, outcome) in the trace.
+async function tracedFetch(trace, api, url) {
+    const { host, pathname } = new URL(url);
+    const entry = { api, host, path: pathname, ms: 0, status: 0, ok: false };
+    trace.push(entry);
+    const started = performance.now();
+    try {
+        const res = await fetch(url);
+        entry.status = res.status;
+        entry.ok = res.ok;
+        return res;
+    } catch (error) {
+        entry.error = error.message;
+        throw error;
+    } finally {
+        entry.ms = Math.round(performance.now() - started);
+    }
+}
+
+async function geocode(locationInput, trace) {
     const query = locationInput.trim();
     const isPostalCode = /^\d+$/.test(query);
 
     if (isPostalCode) {
-        const zipRes = await fetch(`https://api.zippopotam.us/za/${encodeURIComponent(query)}`);
+        const zipRes = await tracedFetch(trace, 'zippopotam', `https://api.zippopotam.us/za/${encodeURIComponent(query)}`);
         if (!zipRes.ok) throw new Error("Postal code not found");
         const zipData = await zipRes.json();
         const place = zipData.places[0];
@@ -249,7 +274,7 @@ async function geocode(locationInput) {
         };
     }
 
-    const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&format=json`);
+    const geoRes = await tracedFetch(trace, 'open-meteo-geocoding', `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&format=json`);
     const geoData = await geoRes.json();
     if (!geoData.results || geoData.results.length === 0) throw new Error("City not found");
     const result = geoData.results[0];
